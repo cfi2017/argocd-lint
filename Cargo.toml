@@ -1,0 +1,36 @@
+[package]
+name = "argocd-lint"
+version = "0.1.0"
+edition = "2024"
+
+[features]
+default = ["console"]
+tracing = []
+console = []
+
+
+[dependencies]
+anyhow = "1.0.94"
+clap = "4.5.23"
+config = "0.14.1"
+serde = { version = "1.0.216", features = ["derive"] }
+
+yaml = "0.3.0"
+yaml-rust = "0.4.5"
+
+# tracing
+tracing = { version = "0.1", features = ["log"] }
+log = { version = "0.4", features = ["max_level_info", "release_max_level_info"] }
+tracing-log = "0.2"
+tracing-subscriber = { version = "0.3", features = ["fmt", "json", "env-filter"] }
+tracing-error = { version = "0.2", features = ["traced-error"] }
+# otel harness
+tracing-opentelemetry = "0.25.0"
+opentelemetry = { version = "0.24.0" }
+opentelemetry-otlp = { version = "0.17.0", features = ["tokio", "metrics", "grpc-tonic"] }
+opentelemetry_sdk = { version = "0.24.1", features = ["rt-tokio"] }
+serde_yaml = "0.9.34"
+tokio = { version = "1", features = ["full"]}
+tempfile = "3.14.0"
+fancy = "0.3"
+rayon = "1.10.0"

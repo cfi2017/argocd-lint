@@ -1,0 +1,10 @@
+builds:
+  builder: rust
+  binary: argocd-lint
+  targets:
+    - x86_64-unknown-linux-musl
+    - x86_64-unknown-linux-gnu
+  flags:
+    - --release
+    - --default-features=false
+    - --features=console
