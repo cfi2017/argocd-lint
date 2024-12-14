@@ -1,6 +1,5 @@
 use anyhow::bail;
 use fancy::eprintcoln;
-use tracing::warn;
 use crate::model::State;
 
 // checks
@@ -12,8 +11,6 @@ pub fn run_checks(state: &State) -> anyhow::Result<bool> {
     let mut succeeded = true;
     for (name, application) in &state.applications {
         if let Err(err) = run_check(state, name, application) {
-            warn!("check failed for application {}: {}", name, err);
-            #[cfg(feature = "console")]
             eprintcoln!("[bold|red]check failed for application {}: {}", name, err);
             succeeded = false;
         }

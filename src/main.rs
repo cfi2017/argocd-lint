@@ -18,14 +18,9 @@ use yaml_rust::{Yaml, YamlLoader};
 async fn main() -> anyhow::Result<()> {
     let config = argocd_lint::config::Config::load().context("could not load config")?;
 
-    #[cfg(feature = "tracing")]
-    argocd_lint::tracing::init_tracing(&config.tracing)?;
-
     let mut state = State::default();
     state.local_repos = config.local_repos;
 
-    tracing::info!("loading entrypoints");
-    #[cfg(feature = "console")]
     eprintcoln!("loading entrypoints");
 
     let entrypoints = load_entrypoints(&config.entrypoints);
@@ -90,8 +85,6 @@ fn parse_yaml(state: &mut State, documents: Vec<Yaml>) -> anyhow::Result<()> {
     let new_templates = new_applications.into_iter()
         .map(|name| state.applications.get(&name).unwrap().to_owned())
         .inspect(|app| {
-            info!("rendering application {}", app.name);
-            #[cfg(feature = "console")]
             eprintcoln!("[green]rendering application {}", app.name);
         })
         .par_bridge()
@@ -110,8 +103,6 @@ fn parse_yaml(state: &mut State, documents: Vec<Yaml>) -> anyhow::Result<()> {
 
     eprintcoln!("rendered {} templates", new_templates.len());
     if let Err(err) = parse_yaml(state, new_templates) {
-        tracing::error!("could not parse rendered templates: {}", err);
-        #[cfg(feature = "console")]
         eprintcoln!("could not parse rendered templates: {}", err);
     }
 

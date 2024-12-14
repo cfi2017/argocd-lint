@@ -4,8 +4,7 @@ use serde::Deserialize;
 #[derive(Debug, Clone, Default, Deserialize)]
 pub struct Config {
     pub entrypoints: Vec<String>,
-    pub local_repos: HashMap<String, String>,
-    pub tracing: crate::tracing::TracingConfig
+    pub local_repos: HashMap<String, String>
 }
 
 impl Config {
