@@ -14,7 +14,10 @@ misconfigurations.
 ## Configuration
 
 ```ỳaml
-
+entrypoints:
+  - "/some/path/to/misc-apps.yaml"
+local_repos:
+  git@git.example.com:org/repo: "/some/path/to/local/git/repo"
 ```
 
 ## Usage
