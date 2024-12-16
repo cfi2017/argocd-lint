@@ -1,5 +1,6 @@
 use yaml_rust::Yaml;
 use std::collections::HashMap;
+use crate::config::Config;
 use crate::util::get_name;
 
 #[derive(Debug, Default)]
@@ -7,7 +8,8 @@ pub struct State {
     pub local_repos: HashMap<String, String>,
     pub applications: HashMap<String, crate::argo::Application>,
     pub app_projects: HashMap<String, AppProject>,
-    pub namespaces: HashMap<String, Namespace>
+    pub namespaces: HashMap<String, Namespace>,
+    pub config: Config
 }
 
 

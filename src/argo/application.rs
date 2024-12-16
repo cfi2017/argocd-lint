@@ -8,7 +8,8 @@ use yaml_rust::Yaml;
 use crate::model::{State};
 use crate::util::{get_chart_name, get_name, get_repo_url};
 
-enum SourceType {
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum SourceType {
     HelmChart,
     GitRepo,
 }
@@ -103,7 +104,7 @@ impl Application {
         Ok(result.trim().to_string())
     }
     
-    fn identify_application_source(self: &Application) -> SourceType {
+    pub(crate) fn identify_application_source(self: &Application) -> SourceType {
         if !self.yaml["spec"]["source"]["chart"].is_badvalue() {
             SourceType::HelmChart
         } else {
