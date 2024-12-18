@@ -2,10 +2,16 @@ use std::collections::HashMap;
 use std::path::PathBuf;
 use serde::Deserialize;
 
+#[derive(Debug, Clone, Deserialize)]
+pub struct LocalRepo {
+    pub(crate) repo: String,
+    pub(crate) path: String,
+}
+
 #[derive(Debug, Clone, Default, Deserialize)]
 pub struct Config {
     pub entrypoints: Vec<String>,
-    pub local_repos: HashMap<String, String>,
+    pub local_repos: Vec<LocalRepo>,
     #[serde(default)]
     pub fuzz: bool,
 }

@@ -1,4 +1,4 @@
-use yaml_rust::Yaml;
+use yaml_rust2::Yaml;
 use std::collections::HashMap;
 use crate::config::Config;
 use crate::util::get_name;
@@ -9,6 +9,8 @@ pub struct State {
     pub applications: HashMap<String, crate::argo::Application>,
     pub app_projects: HashMap<String, AppProject>,
     pub namespaces: HashMap<String, Namespace>,
+    pub images: Vec<String>,
+    pub yaml: Vec<Yaml>,
     pub config: Config
 }
 

@@ -1,4 +1,4 @@
-use yaml_rust::Yaml;
+use yaml_rust2::Yaml;
 
 pub fn get_name(yaml: &Yaml) -> &str {
     yaml["metadata"]["name"].as_str().unwrap()

@@ -11,11 +11,9 @@ config = "0.14.1"
 serde = { version = "1.0.216", features = ["derive"] }
 
 yaml = "0.3.0"
-yaml-rust = "0.4.5"
+yaml-rust2 = "0.9"
+saphyr = "0.0.3"
 
-# tracing
-tracing = { version = "0.1", features = ["log"] }
-log = { version = "0.4", features = ["max_level_info", "release_max_level_info"] }
 tokio = { version = "1", features = ["full"]}
 tempfile = "3.14.0"
 fancy = "0.3"

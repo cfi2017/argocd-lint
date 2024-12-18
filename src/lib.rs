@@ -2,7 +2,7 @@ use std::collections::HashSet;
 use std::fs::read_to_string;
 use fancy::eprintcoln;
 use rayon::prelude::*;
-use yaml_rust::{Yaml, YamlLoader};
+use yaml_rust2::{Yaml, YamlLoader};
 use crate::config::Config;
 use crate::model::State;
 use crate::util::get_name;
@@ -17,9 +17,13 @@ mod argo;
 pub async fn check(config: Config) -> anyhow::Result<()> {
 
     let mut state = State::default();
-    state.local_repos = config.local_repos.clone();
+    state.local_repos = config.local_repos.iter().map(|r| (r.repo.clone(), r.path.clone())).collect();
     state.config = config.clone();
 
+    eprintcoln!("local repos:");
+    for (url, path) in &state.local_repos {
+        eprintcoln!("{} -> {}", url, path);
+    }
     eprintcoln!("loading entrypoints");
 
     let entrypoints = load_entrypoints(&config.entrypoints);
@@ -106,6 +110,8 @@ fn parse_yaml(state: &mut State, documents: Vec<Yaml>) -> anyhow::Result<()> {
     if new_templates.is_empty() {
         return Ok(());
     }
+    
+    state.yaml.extend(new_templates.clone());
 
     eprintcoln!("rendered {} templates", new_templates.len());
     if let Err(err) = parse_yaml(state, new_templates) {

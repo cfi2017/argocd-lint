@@ -1,4 +1,5 @@
 entrypoints:
   - "/some/path/to/misc-apps.yaml"
 local_repos:
-  git@git.example.com:org/repo: "/some/path/to/local/git/repo"
+  - repo: git@git.example.com:org/repo
+    path: "/some/path/to/local/git/repo"

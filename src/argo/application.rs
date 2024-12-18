@@ -3,8 +3,8 @@ use std::io::{Read, Write};
 use std::path::Path;
 use std::process::Command;
 use anyhow::Context;
-use log::info;
-use yaml_rust::Yaml;
+use fancy::eprintcoln;
+use yaml_rust2::Yaml;
 use crate::model::{State};
 use crate::util::{get_chart_name, get_name, get_repo_url};
 
@@ -67,7 +67,8 @@ impl Application {
             }
             Ok(rendered_templates)
         } else {
-            todo!("remote repo fetching")
+            eprintcoln!("[red]repo {} is a remote git repo and not found in local repos, skipping", repo_url);
+            Ok("".to_string())
         }
     }
 
@@ -85,9 +86,9 @@ impl Application {
         } else if !helm["valuesObject"].is_badvalue() {
             let values = &helm["valuesObject"];
             let mut values_str = String::new();
-            yaml_rust::YamlEmitter::new(&mut values_str).dump(values).context("could not dump values object")?;
+            yaml_rust2::YamlEmitter::new(&mut values_str).dump(values).context("could not dump values object")?;
             let mut file = File::create(&values_file).context("could not create values file")?;
-            file.write_all((&values_str).as_ref()).context("could not write values file")?;
+            file.write_all(values_str.as_ref()).context("could not write values file")?;
         }
 
         let result = Command::new("helm")
