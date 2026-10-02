@@ -8,12 +8,6 @@ use yaml_rust2::Yaml;
 use crate::model::{State};
 use crate::util::{get_chart_name, get_name, get_repo_url};
 
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum SourceType {
-    HelmChart,
-    GitRepo,
-}
-
 #[derive(Debug, Clone)]
 pub struct Application {
     pub name: String,
@@ -38,19 +32,38 @@ impl From<Yaml> for Application {
 
 impl Application {
     pub fn render(&self, state: &State) -> anyhow::Result<String> {
-        let source_type = self.identify_application_source();
-        match source_type {
-            SourceType::GitRepo => self.render_static_repo(state), // technically pull git repo but 99% we might be able to get away with local repo :)
-            SourceType::HelmChart => self.render_helm_chart(state),
-        }.context("could not render application")
+        let sources = self.yaml["spec"]["sources"].as_vec();
+        if let Some(sources) = sources {
+            return sources
+                .iter()
+                .map(|source| self.render_source(source, state))
+                .collect::<anyhow::Result<Vec<_>>>()
+                .map(|rendered| rendered.concat())
+                .context("could not render multi-source application");
+        }
+
+        self.render_source(&self.yaml["spec"]["source"], state)
+            .context("could not render application")
     }
 
-    fn render_static_repo(self: &Application, state: &State) -> anyhow::Result<String> {
-        let repo_url = get_repo_url(&self.yaml);
+    fn render_source(&self, source: &Yaml, state: &State) -> anyhow::Result<String> {
+        if source["chart"].as_str().is_some() {
+            self.render_helm_chart(source)
+        } else if source["path"].as_str().is_some() {
+            self.render_static_repo(source, state)
+        } else {
+            // A source with only `ref` supplies Helm values and renders no manifests itself.
+            Ok(String::new())
+        }
+    }
+
+    fn render_static_repo(&self, source: &Yaml, state: &State) -> anyhow::Result<String> {
+        let repo_url = get_repo_url(source)
+            .context("source with a path is missing repoURL")?;
         if state.local_repos.contains_key(repo_url) {
             let path = state.local_repos.get(repo_url).unwrap();
             let path = Path::new(path);
-            let path = path.join(self.yaml["spec"]["source"]["path"].as_str().unwrap());
+            let path = path.join(source["path"].as_str().unwrap());
             let files = std::fs::read_dir(path).context("could not read directory")?;
             let mut rendered_templates = String::new();
             for file in files {
@@ -72,11 +85,13 @@ impl Application {
         }
     }
 
-    fn render_helm_chart(self: &Application, state: &State) -> anyhow::Result<String> {
+    fn render_helm_chart(&self, source: &Yaml) -> anyhow::Result<String> {
         let temp_dir = tempfile::tempdir().context("could not create temporary directory")?;
-        let repo_url = get_repo_url(&self.yaml);
-        let chart = get_chart_name(&self.yaml);
-        let helm = &self.yaml["spec"]["source"]["helm"];
+        let repo_url = get_repo_url(source)
+            .context("Helm source is missing repoURL")?;
+        let chart = get_chart_name(source)
+            .context("Helm source is missing chart")?;
+        let helm = &source["helm"];
         let release_name = helm["releaseName"].as_str().unwrap_or(&self.name);
         let values_file = temp_dir.path().join("values.yaml");
         if !helm["values"].is_badvalue() {
@@ -105,12 +120,4 @@ impl Application {
         Ok(result.trim().to_string())
     }
     
-    pub(crate) fn identify_application_source(self: &Application) -> SourceType {
-        if !self.yaml["spec"]["source"]["chart"].is_badvalue() {
-            SourceType::HelmChart
-        } else {
-            SourceType::GitRepo
-        }
-    }
-
 }

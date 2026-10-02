@@ -25,3 +25,16 @@ local_repos:
 ```bash
 argocd-lint
 ```
+
+## Nix
+
+Enter the Rust development environment with:
+
+```bash
+nix develop
+```
+
+Build or run the program with `nix build` and `nix run`, respectively. The
+packaged program and development shell include Helm, which is used to render
+Helm-based Argo CD applications. Run the build, tests, and Clippy checks with
+`nix flake check`.

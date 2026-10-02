@@ -98,10 +98,20 @@ fn parse_yaml(state: &mut State, documents: Vec<Yaml>) -> anyhow::Result<()> {
             eprintcoln!("[green]rendering application {}", app.name);
         })
         .par_bridge()
-        .map(|app| app.render(state))
-        .flatten()
-        .map(|templates| YamlLoader::load_from_str(&templates))
-        .flatten()
+        .filter_map(|app| match app.render(state) {
+            Ok(rendered) => Some(rendered),
+            Err(err) => {
+                eprintcoln!("[red]could not render application {}: {:#}", app.name, err);
+                None
+            }
+        })
+        .filter_map(|templates| match YamlLoader::load_from_str(&templates) {
+            Ok(documents) => Some(documents),
+            Err(err) => {
+                eprintcoln!("[red]could not parse rendered YAML: {}", err);
+                None
+            }
+        })
         .reduce(|| Vec::new(), |mut acc, mut templates| {
             acc.append(&mut templates);
             acc

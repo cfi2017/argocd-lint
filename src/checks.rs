@@ -1,6 +1,7 @@
 use anyhow::bail;
 use fancy::{colorize, eprintcoln};
 use crate::model::State;
+use crate::util::get_repo_urls;
 
 // checks
 // 1. check if all projects that are referenced in applications exist
@@ -37,9 +38,10 @@ pub fn run_check(state: &State, name: &str, application: &crate::argo::Applicati
         bail!(colorize!("project [bold|red]{} [yellow]is not allowed to write to namespace [bold|red]{}", project, namespace.name));
     }
 
-    let repo = application.yaml["spec"]["source"]["repoURL"].as_str().unwrap();
-    if !app_project.source_repos().contains(&repo.to_owned()) {
-        bail!(colorize!("project [bold|red]{} [yellow]does not have access to repo [bold|red]{}", project, repo));
+    for repo in get_repo_urls(&application.yaml) {
+        if !app_project.source_repos().contains(&repo.to_owned()) {
+            bail!(colorize!("project [bold|red]{} [yellow]does not have access to repo [bold|red]{}", project, repo));
+        }
     }
     
     Ok(())
