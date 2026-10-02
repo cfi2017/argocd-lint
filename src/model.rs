@@ -1,6 +1,5 @@
 use yaml_rust2::Yaml;
 use std::collections::HashMap;
-use crate::config::Config;
 use crate::util::get_name;
 
 #[derive(Debug, Default)]
@@ -9,9 +8,9 @@ pub struct State {
     pub applications: HashMap<String, crate::argo::Application>,
     pub app_projects: HashMap<String, AppProject>,
     pub namespaces: HashMap<String, Namespace>,
+    pub rendered_manifests: HashMap<String, Vec<Yaml>>,
     pub images: Vec<String>,
     pub yaml: Vec<Yaml>,
-    pub config: Config
 }
 
 
@@ -33,7 +32,7 @@ impl AppProject {
 
 impl From<Yaml> for AppProject {
     fn from(value: Yaml) -> Self {
-        let name = get_name(&value);
+        let name = get_name(&value).expect("AppProject metadata.name was validated");
         AppProject {
             name: name.to_owned(),
             yaml: value
@@ -49,7 +48,7 @@ pub struct Namespace {
 
 impl From<Yaml> for Namespace {
     fn from(value: Yaml) -> Self {
-        let name = get_name(&value);
+        let name = get_name(&value).expect("Namespace metadata.name was validated");
         Namespace {
             name: name.to_owned(),
             yaml: value

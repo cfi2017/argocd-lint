@@ -1,5 +1,12 @@
-entrypoints:
-  - "/some/path/to/misc-apps.yaml"
 local_repos:
   - repo: git@git.example.com:org/repo
     path: "/some/path/to/local/git/repo"
+clusters:
+  development:
+    entrypoints:
+      - "/some/path/to/development-apps.yaml"
+    check_namespaces: false
+  production:
+    entrypoints:
+      - "/some/path/to/production-apps.yaml"
+    check_namespaces: true

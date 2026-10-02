@@ -2,11 +2,10 @@ use std::fs::File;
 use std::io::{Read, Write};
 use std::path::Path;
 use std::process::Command;
-use anyhow::Context;
-use fancy::eprintcoln;
+use anyhow::{bail, Context};
 use yaml_rust2::Yaml;
 use crate::model::{State};
-use crate::util::{get_chart_name, get_name, get_repo_url};
+use crate::util::{get_chart_name, get_name, get_repo_url, join_yaml_documents};
 
 #[derive(Debug, Clone)]
 pub struct Application {
@@ -18,7 +17,7 @@ pub struct Application {
 
 impl From<Yaml> for Application {
     fn from(value: Yaml) -> Self {
-        let name = get_name(&value);
+        let name = get_name(&value).expect("Application metadata.name was validated");
         let namespace = value["spec"]["destination"]["namespace"].as_str().unwrap();
         let project = value["spec"]["project"].as_str().unwrap();
         Application {
@@ -38,7 +37,7 @@ impl Application {
                 .iter()
                 .map(|source| self.render_source(source, state))
                 .collect::<anyhow::Result<Vec<_>>>()
-                .map(|rendered| rendered.concat())
+                .map(join_yaml_documents)
                 .context("could not render multi-source application");
         }
 
@@ -65,23 +64,28 @@ impl Application {
             let path = Path::new(path);
             let path = path.join(source["path"].as_str().unwrap());
             let files = std::fs::read_dir(path).context("could not read directory")?;
-            let mut rendered_templates = String::new();
+            let mut files = files
+                .collect::<Result<Vec<_>, _>>()
+                .context("could not read directory entry")?;
+            files.sort_by_key(|file| file.path());
+            let mut rendered_templates = Vec::new();
             for file in files {
                 // if file is a directory, skip
-                if file.as_ref().unwrap().file_type().unwrap().is_dir() {
+                if file.file_type().context("could not inspect file")?.is_dir() {
                     continue;
                 }
-                let file = file.context("could not read file")?;
                 let file = file.path();
+                if !matches!(file.extension().and_then(|extension| extension.to_str()), Some("yaml" | "yml")) {
+                    continue;
+                }
                 let mut file = File::open(file).context("could not open file")?;
                 let mut contents = String::new();
                 file.read_to_string(&mut contents).context("could not read file")?;
-                rendered_templates.push_str(&contents);
+                rendered_templates.push(contents);
             }
-            Ok(rendered_templates)
+            Ok(join_yaml_documents(rendered_templates))
         } else {
-            eprintcoln!("[red]repo {} is a remote git repo and not found in local repos, skipping", repo_url);
-            Ok("".to_string())
+            bail!("repo {} is remote and not configured in local_repos", repo_url)
         }
     }
 
@@ -115,8 +119,14 @@ impl Application {
             .arg(release_name)
             .arg(chart)
             .output()
-            .unwrap().stdout;
-        let result = String::from_utf8_lossy(&result);
+            .context("could not execute helm template")?;
+        if !result.status.success() {
+            bail!(
+                "helm template failed: {}",
+                String::from_utf8_lossy(&result.stderr).trim()
+            );
+        }
+        let result = String::from_utf8_lossy(&result.stdout);
         Ok(result.trim().to_string())
     }
     

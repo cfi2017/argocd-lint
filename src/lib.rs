@@ -14,11 +14,21 @@ pub mod util;
 mod cli;
 mod argo;
 
-pub async fn check(config: Config) -> anyhow::Result<()> {
+pub async fn check(
+    config: &Config,
+    entrypoints: &[String],
+    check_namespaces: bool,
+    output_namespaced_resource_whitelist: bool,
+) -> anyhow::Result<bool> {
 
-    let mut state = State::default();
-    state.local_repos = config.local_repos.iter().map(|r| (r.repo.clone(), r.path.clone())).collect();
-    state.config = config.clone();
+    let mut state = State {
+        local_repos: config
+            .local_repos
+            .iter()
+            .map(|r| (r.repo.clone(), r.path.clone()))
+            .collect(),
+        ..State::default()
+    };
 
     eprintcoln!("local repos:");
     for (url, path) in &state.local_repos {
@@ -26,7 +36,7 @@ pub async fn check(config: Config) -> anyhow::Result<()> {
     }
     eprintcoln!("loading entrypoints");
 
-    let entrypoints = load_entrypoints(&config.entrypoints);
+    let entrypoints = load_entrypoints(entrypoints);
 
     parse_yaml(&mut state, entrypoints)?;
     
@@ -35,18 +45,16 @@ pub async fn check(config: Config) -> anyhow::Result<()> {
     eprintcoln!("got {} app projects", state.app_projects.len());
     eprintcoln!("got {} namespaces", state.namespaces.len());
 
-    if let Ok(succeeded) = crate::checks::run_checks(&state) {
-        if !succeeded {
-            std::process::exit(1);
-        }
-    }
-
-    Ok(())
+    crate::checks::run_checks(
+        &state,
+        check_namespaces,
+        output_namespaced_resource_whitelist,
+    )
     
 }
 
 
-fn load_entrypoints(eps: &Vec<String>) -> Vec<Yaml> {
+fn load_entrypoints(eps: &[String]) -> Vec<Yaml> {
     let mut documents = Vec::new();
     for ep in eps {
         let file_content = read_to_string(ep).unwrap();
@@ -61,19 +69,30 @@ fn parse_yaml(state: &mut State, documents: Vec<Yaml>) -> anyhow::Result<()> {
 
     for document in &documents {
         if let Some(kind) = document["kind"].as_str() {
-            let name = get_name(document);
             match kind {
                 "Application" => {
+                    let Some(name) = get_name(document) else {
+                        eprintcoln!("[yellow]ignoring Application without metadata.name");
+                        continue;
+                    };
                     _ = state
                         .applications
                         .insert(name.to_owned(), document.to_owned().into())
                 }
                 "AppProject" => {
+                    let Some(name) = get_name(document) else {
+                        eprintcoln!("[yellow]ignoring AppProject without metadata.name");
+                        continue;
+                    };
                     _ = state
                         .app_projects
                         .insert(name.to_owned(), document.to_owned().into())
                 }
                 "Namespace" => {
+                    let Some(name) = get_name(document) else {
+                        eprintcoln!("[yellow]ignoring Namespace without metadata.name");
+                        continue;
+                    };
                     _ = state
                         .namespaces
                         .insert(name.to_owned(), document.to_owned().into())
@@ -92,30 +111,35 @@ fn parse_yaml(state: &mut State, documents: Vec<Yaml>) -> anyhow::Result<()> {
         .cloned()
         .collect();
 
-    let new_templates = new_applications.into_iter()
+    let rendered_applications = new_applications.into_iter()
         .map(|name| state.applications.get(&name).unwrap().to_owned())
         .inspect(|app| {
             eprintcoln!("[green]rendering application {}", app.name);
         })
         .par_bridge()
         .filter_map(|app| match app.render(state) {
-            Ok(rendered) => Some(rendered),
+            Ok(rendered) => Some((app.name, rendered)),
             Err(err) => {
                 eprintcoln!("[red]could not render application {}: {:#}", app.name, err);
                 None
             }
         })
-        .filter_map(|templates| match YamlLoader::load_from_str(&templates) {
-            Ok(documents) => Some(documents),
+        .filter_map(|(name, templates)| match YamlLoader::load_from_str(&templates) {
+            Ok(documents) => Some((name, documents)),
             Err(err) => {
                 eprintcoln!("[red]could not parse rendered YAML: {}", err);
                 None
             }
         })
-        .reduce(|| Vec::new(), |mut acc, mut templates| {
-            acc.append(&mut templates);
-            acc
-        });
+        .collect::<Vec<_>>();
+
+    let mut new_templates = Vec::new();
+    for (application, mut manifests) in rendered_applications {
+        state
+            .rendered_manifests
+            .insert(application, manifests.clone());
+        new_templates.append(&mut manifests);
+    }
 
     if new_templates.is_empty() {
         return Ok(());
